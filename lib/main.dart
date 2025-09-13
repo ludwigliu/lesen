@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:epub_view/epub_view.dart'; // 导入 epub_view
-import 'package:path/path.dart' as path; 
+import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 import 'reading_settings.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -11,14 +11,9 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   final settings = ReadingSettings();
-  settings.loadSettings(); 
+  settings.loadSettings();
 
-  runApp(
-    ChangeNotifierProvider.value(
-      value: settings,
-      child: const MyApp(),
-    ),
-  );
+  runApp(ChangeNotifierProvider.value(value: settings, child: const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -78,7 +73,7 @@ class _HomePageState extends State<HomePage> {
         }
       } else {
         setState(() {
-           _textContent = 'Unsupported file type: $extension';
+          _textContent = 'Unsupported file type: $extension';
         });
       }
     }
@@ -116,8 +111,16 @@ class _HomePageState extends State<HomePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildColorChip(context, Colors.white, 'white'),
-                      _buildColorChip(context, const Color(0xFFF5F5DC), 'beige'),
-                      _buildColorChip(context, const Color(0xFFE8F5E9), 'green'),
+                      _buildColorChip(
+                        context,
+                        const Color(0xFFF5F5DC),
+                        'beige',
+                      ),
+                      _buildColorChip(
+                        context,
+                        const Color(0xFFE8F5E9),
+                        'green',
+                      ),
                       _buildColorChip(context, const Color(0xFF212121), 'dark'),
                     ],
                   ),
@@ -136,10 +139,7 @@ class _HomePageState extends State<HomePage> {
         context.read<ReadingSettings>().setBackgroundColor(color);
         Navigator.pop(context);
       },
-      child: Chip(
-        label: Text(name),
-        backgroundColor: color,
-      ),
+      child: Chip(label: Text(name), backgroundColor: color),
     );
   }
 
@@ -166,8 +166,8 @@ class _HomePageState extends State<HomePage> {
                 style: TextStyle(
                   fontSize: settings.fontSize,
                   height: 1.5,
-                  color: settings.backgroundColor == const Color(0xFF212121) 
-                      ? Colors.grey[300] 
+                  color: settings.backgroundColor == const Color(0xFF212121)
+                      ? Colors.grey[300]
                       : Colors.black,
                 ),
               ),
@@ -202,7 +202,7 @@ class _EpubReaderPageState extends State<EpubReaderPage> {
       document: EpubDocument.openFile(File(widget.filePath)),
     );
   }
-  
+
   @override
   void dispose() {
     _epubController.dispose();
@@ -230,14 +230,20 @@ class _EpubReaderPageState extends State<EpubReaderPage> {
             ],
           ),
           drawer: Drawer(
-            child: EpubViewTableOfContents(
-              controller: _epubController,
-            ),
+            child: EpubViewTableOfContents(controller: _epubController),
           ),
           body: EpubView(
             controller: _epubController,
-             builders: EpubViewBuilders<DefaultBuilderOptions>(
-              options: DefaultBuilderOptions(textStyle: TextStyle(fontSize: settings.fontSize)),
+            builders: EpubViewBuilders<DefaultBuilderOptions>(
+              options: DefaultBuilderOptions(
+                textStyle: TextStyle(
+                  fontSize: settings.fontSize,
+                  height: 1.5,
+                  color: settings.backgroundColor == const Color(0xFF212121)
+                      ? Colors.grey[300]
+                      : Colors.black,
+                ),
+              ),
               chapterDividerBuilder: (_) => const Divider(),
             ),
           ),
@@ -245,7 +251,7 @@ class _EpubReaderPageState extends State<EpubReaderPage> {
       },
     );
   }
-  
+
   void _showTableOfContents(BuildContext context) {
     showDialog(
       context: context,
