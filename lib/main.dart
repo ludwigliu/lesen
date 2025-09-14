@@ -1,11 +1,14 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:epub_view/epub_view.dart'; // 导入 epub_view
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
+
 import 'reading_settings.dart';
-import 'package:flutter_html/flutter_html.dart';
+import 'epub_reader_page.dart';
+
+import 'utils/file_utils.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,19 +24,22 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    String lastOpenedFile =
+        context.read<ReadingSettings>().getLastOpenedFile ?? '';
     return MaterialApp(
       title: 'lesen',
       theme: ThemeData(
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: const HomePage(),
+      home: HomePage(lastOpenedFile: lastOpenedFile),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String lastOpenedFile;
+  const HomePage({super.key, required this.lastOpenedFile});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -49,7 +55,13 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (result != null && result.files.single.path != null) {
-      String filePath = result.files.single.path!;
+      String? cacheFilePath = result.files.first.path;
+      String? permanentFilePath = await copyFileToAppDir(cacheFilePath);
+      if (permanentFilePath != null) {
+        debugPrint('permant file path: $permanentFilePath');
+      }
+
+      String filePath = permanentFilePath!;
       String extension = path.extension(filePath).replaceAll('.', '');
 
       if (extension == 'epub') {
@@ -91,7 +103,6 @@ class _HomePageState extends State<HomePage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 字体大小设置
                   const Text('Font Size'),
                   Slider(
                     value: settings.fontSize,
@@ -100,12 +111,10 @@ class _HomePageState extends State<HomePage> {
                     divisions: 18,
                     label: settings.fontSize.round().toString(),
                     onChanged: (value) {
-                      // 这里我们调用方法来改变设置，注意 listen: false
                       context.read<ReadingSettings>().setFontSize(value);
                     },
                   ),
                   const SizedBox(height: 10),
-                  // 背景颜色设置
                   const Text('Background Color'),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -144,122 +153,61 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Consumer<ReadingSettings>(
-      builder: (context, settings, child) {
-        return Scaffold(
-          backgroundColor: settings.backgroundColor,
-          appBar: AppBar(
-            title: const Text('My Bookshelf'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings),
-                onPressed: _showSettingsPanel,
-              ),
-            ],
-          ),
-          body: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SingleChildScrollView(
-              child: Text(
-                _textContent,
-                style: TextStyle(
-                  fontSize: settings.fontSize,
-                  height: 1.5,
-                  color: settings.backgroundColor == const Color(0xFF212121)
-                      ? Colors.grey[300]
-                      : Colors.black,
-                ),
-              ),
-            ),
-          ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _pickFile,
-            tooltip: 'choose file',
-            child: const Icon(Icons.add),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class EpubReaderPage extends StatefulWidget {
-  final String filePath;
-  const EpubReaderPage({super.key, required this.filePath});
-
-  @override
-  State<EpubReaderPage> createState() => _EpubReaderPageState();
-}
-
-class _EpubReaderPageState extends State<EpubReaderPage> {
-  late EpubController _epubController;
-
-  @override
   void initState() {
+    context.read<ReadingSettings>().setLastOpenedFile(widget.lastOpenedFile);
     super.initState();
-    _epubController = EpubController(
-      document: EpubDocument.openFile(File(widget.filePath)),
-    );
-  }
-
-  @override
-  void dispose() {
-    _epubController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ReadingSettings>(
-      builder: (context, settings, child) {
-        return Scaffold(
-          appBar: AppBar(
-            title: EpubViewActualChapter(
-              controller: _epubController,
-              builder: (chapterValue) => Text(
-                chapterValue?.chapter?.Title ?? 'Loading...',
-                textAlign: TextAlign.start,
-              ),
-            ),
-            actions: <Widget>[
-              IconButton(
-                icon: const Icon(Icons.menu_book_outlined),
-                onPressed: () => _showTableOfContents(context),
-              ),
-            ],
-          ),
-          drawer: Drawer(
-            child: EpubViewTableOfContents(controller: _epubController),
-          ),
-          body: EpubView(
-            controller: _epubController,
-            builders: EpubViewBuilders<DefaultBuilderOptions>(
-              options: DefaultBuilderOptions(
-                textStyle: TextStyle(
-                  fontSize: settings.fontSize,
-                  height: 1.5,
-                  color: settings.backgroundColor == const Color(0xFF212121)
-                      ? Colors.grey[300]
-                      : Colors.black,
-                ),
-              ),
-              chapterDividerBuilder: (_) => const Divider(),
-            ),
-          ),
-        );
-      },
+    debugPrint(
+      'last saved settings: '
+      'fontSize=${context.read<ReadingSettings>().fontSize}, '
+      'backgroundColor=${context.read<ReadingSettings>().backgroundColor}, '
+      'lastOpenedFile=${context.read<ReadingSettings>().getLastOpenedFile}',
     );
-  }
 
-  void _showTableOfContents(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: EpubViewTableOfContents(controller: _epubController),
-        );
-      },
-    );
+    return widget.lastOpenedFile.isNotEmpty
+        ? Consumer<ReadingSettings>(
+            builder: (context, setttings, child) =>
+                EpubReaderPage(filePath: widget.lastOpenedFile),
+          )
+        : Consumer<ReadingSettings>(
+            builder: (context, settings, child) {
+              return Scaffold(
+                backgroundColor: settings.backgroundColor,
+                appBar: AppBar(
+                  title: const Text('My Bookshelf'),
+                  actions: [
+                    IconButton(
+                      icon: const Icon(Icons.settings),
+                      onPressed: _showSettingsPanel,
+                    ),
+                  ],
+                ),
+                body: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SingleChildScrollView(
+                    child: Text(
+                      _textContent,
+                      style: TextStyle(
+                        fontSize: settings.fontSize,
+                        height: 1.5,
+                        color:
+                            settings.backgroundColor == const Color(0xFF212121)
+                            ? Colors.grey[300]
+                            : Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+                floatingActionButton: FloatingActionButton(
+                  onPressed: _pickFile,
+                  tooltip: 'choose file',
+                  child: const Icon(Icons.add),
+                ),
+              );
+            },
+          );
   }
 }
